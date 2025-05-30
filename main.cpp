@@ -18,23 +18,59 @@ void generateAndSaveRandomGraph(int vertices, int edges, const std::string& file
         return;
     }
 
+    outfile << vertices << " " << edges << "\n";
+
+    // 1) Przygotuj tablicę visited i lista istniejących krawędzi
+    bool* visited = new bool[vertices];
+    for (int i = 0; i < vertices; ++i) visited[i] = false;
+    visited[0] = true;
+
+    // Tablica do sprawdzania, czy krawędź istnieje
+    bool** exists = new bool*[vertices];
+    for (int i = 0; i < vertices; ++i) {
+        exists[i] = new bool[vertices];
+        for (int j = 0; j < vertices; ++j) exists[i][j] = false;
+    }
+
     srand(static_cast<unsigned int>(time(nullptr)));
 
-    outfile << vertices << " " << edges << "\n";
-    for (int i = 0; i < edges; ++i) {
+    // 2) Generuj spójne drzewo rozpinające (n-1 krawędzi)
+    int added = 0;
+    while (added < vertices - 1) {
         int u = rand() % vertices;
         int v = rand() % vertices;
-        int w = rand() % 100 + 1; // Random weight between 1 and 100
-        if (u != v) {
+        if (u != v && visited[u] != visited[v]) {
+            int w = rand() % 100 + 1;
             outfile << u << " " << v << " " << w << "\n";
-        } else {
-            --i; // Avoid loops by decrementing i to retry
+            exists[u][v] = exists[v][u] = true;
+            visited[v] = visited[u] = true;
+            ++added;
         }
     }
+
+    // 3) Dodaj pozostałe krawędzie
+    int toAdd = edges - (vertices - 1);
+    added = 0;
+    while (added < toAdd) {
+        int u = rand() % vertices;
+        int v = rand() % vertices;
+        if (u != v && !exists[u][v]) {
+            int w = rand() % 100 + 1;
+            outfile << u << " " << v << " " << w << "\n";
+            exists[u][v] = exists[v][u] = true;
+            ++added;
+        }
+    }
+
+    // 4) Zwolnij pamięć
+    delete[] visited;
+    for (int i = 0; i < vertices; ++i) delete[] exists[i];
+    delete[] exists;
 
     outfile.close();
     std::cout << "Graf zapisano do pliku: " << filename << "\n";
 }
+
 
 void displayMenu() {
     std::cout << "================= Menu =================\n";
