@@ -3,6 +3,9 @@
 #include <cstdlib> // for rand()
 #include <ctime>   // for seeding rand()
 #include <fstream>
+#include <cmath>
+#include <string>
+
 #include "GraphMatrix.h"
 #include "GraphList.h"
 #include "MST_Kruskal.h"
@@ -148,22 +151,41 @@ int main() {
             case 1: {
                 std::cout << "Podaj liczbe wierzcholkow: ";
                 std::cin >> n;
-                std::cout << "Podaj liczbe krawedzi: ";
-                std::cin >> m;
+
+                // oblicz maksymalną liczbę krawędzi w grafie nieskierowanym
+                int maxEdges = n * (n - 1) / 2;
+
+                // wybór gęstości
+                std::cout << "Wybierz gestosc grafu:\n";
+                std::cout << "  1) 20%\n";
+                std::cout << "  2) 60%\n";
+                std::cout << "  3) 99%\n";
+                std::cout << "Twoj wybor [1-3]: ";
+                int densChoice;
+                std::cin >> densChoice;
+
+                double density = 0.2;
+                if (densChoice == 2)      density = 0.6;
+                else if (densChoice == 3) density = 0.99;
+
+                // oblicz liczbę krawędzi na podstawie gęstości
+                int m = static_cast<int>(std::ceil(maxEdges * density));
+                std::cout << "Wybrana gestosc = " << (int)(density * 100)
+                          << "%, liczba krawedzi = " << m << "\n";
 
                 std::string filename;
                 std::cout << "Podaj nazwe pliku do zapisu: ";
                 std::cin >> filename;
 
+                // generuj graf
                 generateAndSaveRandomGraph(n, m, filename);
 
-                // Wczytaj jako nieskierowany
+                // wczytaj struktury
                 readGraphFromFile(filename, false, graphMatrixU, graphListU);
-                // Wczytaj jako skierowany
-                readGraphFromFile(filename, true, graphMatrixD, graphListD);
-
+                readGraphFromFile(filename, true,  graphMatrixD, graphListD);
                 break;
             }
+
 
             case 2: {
                 // Wczytanie z pliku
