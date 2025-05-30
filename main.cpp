@@ -9,6 +9,8 @@
 #include "MST_Prim.h"
 #include "SP_Dijkstra.h"
 #include "SP_Bellman.h"
+#include "MaxFlow_FF.h"
+
 
 void readGraphFromFile(const std::string& filename, bool directed, GraphMatrix*& graphMatrix, GraphList*& graphList) {
     std::ifstream infile(filename);
@@ -121,10 +123,12 @@ void displayMenu() {
     std::cout << "5. Algorytm Kruskala\n";
     std::cout << "6. Dijkstra\n";
     std::cout << "7. Bellman-Ford\n";
-    std::cout << "8. Wyjscie\n";
+    std::cout << "8. Max flow (Ford-Fulkerson)\n";
+    std::cout << "9. Wyjscie\n";
     std::cout << "========================================\n";
     std::cout << "Wybierz opcje: ";
 }
+
 
 int main() {
     int n = 0, m = 0; // Number of vertices and edges
@@ -287,14 +291,29 @@ int main() {
             }
 
 
-            case 8:
+            case 8: {
+                // Maksymalny przepływ na grafie skierowanym
+                if (graphMatrixD && graphListD) {
+                    int s, t;
+                    std::cout << "Podaj wierzcholek zrodlowy (s): ";
+                    std::cin >> s;
+                    std::cout << "Podaj wierzcholek ujscia (t): ";
+                    std::cin >> t;
+                    MaxFlowFF mf(n);
+                    mf.fordFulkerson(*graphMatrixD, s, t);
+                } else {
+                    std::cout << "Graf skierowany nie zostal zainicjowany.\n";
+                }
+                break;
+            }
+
+            case 9:
                 std::cout << "Konczenie programu.\n";
-                delete graphMatrix;
-                delete graphList;
-                delete kruskal;
+                // usuń wszystkie utworzone wskaźniki...
+                delete graphMatrixU; delete graphListU;
+                delete graphMatrixD; delete graphListD;
                 return 0;
-            default:
-                std::cout << "Nieprawidlowa opcja, sproboj ponownie.\n";
+
         }
     }
 }

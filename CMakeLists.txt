@@ -15,4 +15,7 @@ add_executable(Aizo_Projekt_2_grafy main.cpp
         SP_Dijkstra.cpp
         SP_Dijkstra.h
         SP_Bellman.cpp
-        SP_Bellman.h)
+        SP_Bellman.h
+        MaxFlow_FF.cpp
+        MaxFlow_FF.cpp
+        MaxFlow_FF.h)
