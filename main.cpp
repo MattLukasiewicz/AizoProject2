@@ -52,23 +52,18 @@ void readGraphFromFile(const std::string& filename, bool directed, GraphMatrix*&
     std::cout << "Graf wczytano z pliku: " << filename << "\n";
 }
 
-void generateAndSaveRandomGraph(int vertices, int edges, const std::string& filename) {
+void generateAndSaveRandomGraph(int vertices, int edges, const std::string& filename, bool directed) {
     std::ofstream outfile(filename);
     if (!outfile) {
-        std::cerr << "Blad zapisu pliku: " << filename << std::endl;
+        std::cerr << "Blad zapisu pliku: " << filename << "\n";
         return;
     }
 
-    // Maksymalna liczba krawędzi w nieskierowanym grafie
-    int maxEdges = vertices * (vertices - 1) / 2;
-    if (edges > maxEdges) edges = maxEdges;
-
+    // Zapisz liczbę wierzchołków i krawędzi
     outfile << vertices << " " << edges << "\n";
 
-    // 1) Przygotuj visited[] i macierz exists[][] do śledzenia spójności i duplikatów
+    // Przygotuj struktury pomocnicze
     bool* visited = new bool[vertices]();
-    visited[0] = true;
-
     bool** exists = new bool*[vertices];
     for (int i = 0; i < vertices; ++i) {
         exists[i] = new bool[vertices]();
@@ -76,12 +71,14 @@ void generateAndSaveRandomGraph(int vertices, int edges, const std::string& file
 
     srand(static_cast<unsigned>(time(nullptr)));
 
-    // 2) Generuj spójne drzewo rozpinające (vertices - 1 krawędzi)
+    // Generowanie spójnego grafu
     int treeEdges = 0;
+    visited[0] = true;
+
     while (treeEdges < vertices - 1) {
         int u = rand() % vertices;
         int v = rand() % vertices;
-        if (u != v && visited[u] != visited[v]) {
+        if (u != v && (visited[u] != visited[v])) {
             int w = rand() % 100 + 1;
             outfile << u << " " << v << " " << w << "\n";
             exists[u][v] = exists[v][u] = true;
@@ -90,30 +87,87 @@ void generateAndSaveRandomGraph(int vertices, int edges, const std::string& file
         }
     }
 
-    // 3) Dodaj pozostałe krawędzie do osiągnięcia edges
-    int extra = edges - (vertices - 1);
-    int added = 0;
-    while (added < extra) {
+    // Dla skierowanego: pętla zapewniająca dojścia
+    if (directed) {
+        for (int i = 0; i < vertices; ++i) {
+            int next = (i + 1) % vertices;
+            if (!exists[i][next]) {
+                int w = rand() % 100 + 1;
+                outfile << i << " " << next << " " << w << "\n";
+                exists[i][next] = true;
+            }
+        }
+    }
+
+    // Generowanie dodatkowych krawędzi
+    int extraEdges = edges - (directed ? treeEdges + vertices : treeEdges);
+    while (extraEdges > 0) {
         int u = rand() % vertices;
         int v = rand() % vertices;
         if (u != v && !exists[u][v]) {
             int w = rand() % 100 + 1;
             outfile << u << " " << v << " " << w << "\n";
-            exists[u][v] = exists[v][u] = true;
-            ++added;
+            if (directed) exists[u][v] = true;
+            else exists[u][v] = exists[v][u] = true;
+            --extraEdges;
         }
     }
 
-    // 4) Zwolnij pamięć
-    delete[] visited;
-    for (int i = 0; i < vertices; ++i) {
-        delete[] exists[i];
-    }
+    // Czyszczenie pamięci
+    for (int i = 0; i < vertices; ++i) delete[] exists[i];
     delete[] exists;
+    delete[] visited;
 
     outfile.close();
     std::cout << "Graf zapisano do pliku: " << filename << "\n";
 }
+
+
+void removeOnePercent(const std::string& filename) {
+    std::ifstream infile(filename);
+    if (!infile) {
+        std::cerr << "Blad otwierania pliku: " << filename << "\n";
+        return;
+    }
+
+    int vertices, edges;
+    infile >> vertices >> edges;
+
+    int* u = new int[edges];
+    int* v = new int[edges];
+    int* w = new int[edges];
+
+    for (int i = 0; i < edges; ++i) {
+        infile >> u[i] >> v[i] >> w[i];
+    }
+    infile.close();
+
+    // Usuwanie 1% krawędzi
+    int toRemove = edges / 100;
+    srand(static_cast<unsigned>(time(nullptr)));
+
+    for (int i = 0; i < toRemove; ++i) {
+        int idx = rand() % edges;
+        u[idx] = u[edges - 1];
+        v[idx] = v[edges - 1];
+        w[idx] = w[edges - 1];
+        --edges;
+    }
+
+    std::ofstream outfile(filename);
+    outfile << vertices << " " << edges << "\n";
+    for (int i = 0; i < edges; ++i) {
+        outfile << u[i] << " " << v[i] << " " << w[i] << "\n";
+    }
+    outfile.close();
+
+    delete[] u;
+    delete[] v;
+    delete[] w;
+
+    std::cout << "Usunieto 1% krawedzi z grafu: " << filename << "\n";
+}
+
 
 
 
@@ -152,10 +206,10 @@ int main() {
                 std::cout << "Podaj liczbe wierzcholkow: ";
                 std::cin >> n;
 
-                // oblicz maksymalną liczbę krawędzi w grafie nieskierowanym
+                // Oblicz maksymalną liczbę krawędzi w grafie nieskierowanym
                 int maxEdges = n * (n - 1) / 2;
 
-                // wybór gęstości
+                // Wybór gęstości
                 std::cout << "Wybierz gestosc grafu:\n";
                 std::cout << "  1) 20%\n";
                 std::cout << "  2) 60%\n";
@@ -164,27 +218,39 @@ int main() {
                 int densChoice;
                 std::cin >> densChoice;
 
-                double density = 0.2;
-                if (densChoice == 2)      density = 0.6;
+                double density = 0.2; // Domyślna gęstość to 20%
+                if (densChoice == 2) density = 0.6;
                 else if (densChoice == 3) density = 0.99;
 
-                // oblicz liczbę krawędzi na podstawie gęstości
-                int m = static_cast<int>(std::ceil(maxEdges * density));
-                std::cout << "Wybrana gestosc = " << (int)(density * 100)
-                          << "%, liczba krawedzi = " << m << "\n";
+                // Oblicz liczbę krawędzi na podstawie wybranej gęstości
+                int edges = static_cast<int>(std::ceil(maxEdges * density));
+
+                std::cout << "Wybrana gestosc = " << static_cast<int>(density * 100)
+                          << "%, liczba krawedzi = " << edges << "\n";
+
+                // Wybór trybu grafu
+                std::cout << "Czy graf ma byc skierowany? (1 = tak, 0 = nie): ";
+                bool directed;
+                std::cin >> directed;
 
                 std::string filename;
                 std::cout << "Podaj nazwe pliku do zapisu: ";
                 std::cin >> filename;
 
-                // generuj graf
-                generateAndSaveRandomGraph(n, m, filename);
+                // Generuj graf
+                generateAndSaveRandomGraph(n, edges, filename, directed);
 
-                // wczytaj struktury
+                // Jeśli wybrano 99% gęstości, usuń 1% krawędzi
+                if (densChoice == 3) removeOnePercent(filename);
+
+                // Wczytaj jako nieskierowany (dla MST)
                 readGraphFromFile(filename, false, graphMatrixU, graphListU);
-                readGraphFromFile(filename, true,  graphMatrixD, graphListD);
+
+                // Wczytaj jako skierowany (dla SP)
+                readGraphFromFile(filename, true, graphMatrixD, graphListD);
                 break;
             }
+
 
 
             case 2: {
