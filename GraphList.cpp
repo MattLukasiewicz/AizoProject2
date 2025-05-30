@@ -19,12 +19,32 @@ GraphList::~GraphList() {
     delete[] adj;
 }
 
+// ZAMIENIAMY całą implementację addEdge(...)
 void GraphList::addEdge(int u, int v, int w) {
     if (u >= 0 && u < n && v >= 0 && v < n) {
-        Node* nodeU = new Node{v, w, adj[u]};
+        // dodaj krawędź u->v
+        Node* nodeU = new Node;
+        nodeU->v = v;
+        nodeU->w = w;
+        nodeU->next = adj[u];
         adj[u] = nodeU;
-        Node* nodeV = new Node{u, w, adj[v]};
-        adj[v] = nodeV; // Undirected graph
+        // dodaj krawędź v->u (graf nieskierowany)
+        Node* nodeV = new Node;
+        nodeV->v = u;
+        nodeV->w = w;
+        nodeV->next = adj[v];
+        adj[v] = nodeV;
+    }
+}
+
+// ZAMIENIAMY całą implementację addDirectedEdge(...)
+void GraphList::addDirectedEdge(int u, int v, int w) {
+    if (u >= 0 && u < n && v >= 0 && v < n) {
+        Node* newNode = new Node;
+        newNode->v = v;
+        newNode->w = w;
+        newNode->next = adj[u];
+        adj[u] = newNode;
     }
 }
 

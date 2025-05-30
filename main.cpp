@@ -10,6 +10,42 @@
 #include "SP_Dijkstra.h"
 #include "SP_Bellman.h"
 
+void readGraphFromFile(const std::string& filename, bool directed, GraphMatrix*& graphMatrix, GraphList*& graphList) {
+    std::ifstream infile(filename);
+    if (!infile) {
+        std::cerr << "Blad otwarcia pliku: " << filename << "\n";
+        return;
+    }
+
+    int vertices, edges;
+    infile >> vertices >> edges;
+
+    // Usuń stare struktury grafu
+    delete graphMatrix;
+    delete graphList;
+
+    // Inicjalizuj nowe struktury
+    graphMatrix = new GraphMatrix(vertices);
+    graphList = new GraphList(vertices);
+
+    // Wczytaj krawędzie
+    for (int i = 0; i < edges; ++i) {
+        int u, v, w;
+        infile >> u >> v >> w;
+        if (directed) {
+            // Dodaj krawędzie skierowane
+            graphMatrix->addDirectedEdge(u, v, w);
+            graphList->addDirectedEdge(u, v, w);
+        } else {
+            // Dodaj krawędzie nieskierowane
+            graphMatrix->addEdge(u, v, w);
+            graphList->addEdge(u, v, w);
+        }
+    }
+
+    infile.close();
+    std::cout << "Graf wczytano z pliku: " << filename << "\n";
+}
 
 void generateAndSaveRandomGraph(int vertices, int edges, const std::string& filename) {
     std::ofstream outfile(filename);
@@ -95,6 +131,9 @@ int main() {
     GraphMatrix* graphMatrix = nullptr;
     GraphList* graphList = nullptr;
     MSTKruskal* kruskal = nullptr;
+    GraphMatrix *graphMatrixU = nullptr, *graphMatrixD = nullptr;
+    GraphList   *graphListU   = nullptr, *graphListD   = nullptr;
+
 
     while (true) {
         displayMenu();
@@ -103,7 +142,6 @@ int main() {
 
         switch (choice) {
             case 1: {
-                // Generowanie losowego grafu i zapis do pliku
                 std::cout << "Podaj liczbe wierzcholkow: ";
                 std::cin >> n;
                 std::cout << "Podaj liczbe krawedzi: ";
@@ -114,8 +152,15 @@ int main() {
                 std::cin >> filename;
 
                 generateAndSaveRandomGraph(n, m, filename);
+
+                // Wczytaj jako nieskierowany
+                readGraphFromFile(filename, false, graphMatrixU, graphListU);
+                // Wczytaj jako skierowany
+                readGraphFromFile(filename, true, graphMatrixD, graphListD);
+
                 break;
             }
+
             case 2: {
                 // Wczytanie z pliku
                 std::string filename;
@@ -129,81 +174,118 @@ int main() {
                 }
 
                 infile >> n >> m;
-                delete graphMatrix;
-                delete graphList;
-                delete kruskal;
-                graphMatrix = new GraphMatrix(n);
-                graphList = new GraphList(n);
-                kruskal = new MSTKruskal(n);
+
+                // Usuwamy poprzednie grafy
+                delete graphMatrixU; delete graphListU;
+                delete graphMatrixD; delete graphListD;
+                graphMatrixU = new GraphMatrix(n);
+                graphListU   = new GraphList(n);
+                graphMatrixD = new GraphMatrix(n);
+                graphListD   = new GraphList(n);
 
                 int u, v, w;
                 for (int i = 0; i < m; ++i) {
                     infile >> u >> v >> w;
-                    graphMatrix->addEdge(u, v, w);
-                    graphList->addEdge(u, v, w);
+
+                    // MST: Nieskierowane
+                    graphMatrixU->addEdge(u, v, w);
+                    graphListU->addEdge(u, v, w);
+
+                    // SP: Skierowane
+                    graphMatrixD->addDirectedEdge(u, v, w);
+                    graphListD->addDirectedEdge(u, v, w);
                 }
                 infile.close();
 
                 std::cout << "Graf wczytano z pliku.\n";
+                std::cout << "Reprezentacja macierzowa (Nieskierowany - MST):\n";
+                graphMatrixU->display();
+                std::cout << "Reprezentacja listowa (Nieskierowany - MST):\n";
+                graphListU->display();
+
+                std::cout << "Reprezentacja macierzowa (Skierowany - SP):\n";
+                graphMatrixD->display();
+                std::cout << "Reprezentacja listowa (Skierowany - SP):\n";
+                graphListD->display();
                 break;
             }
+
             case 3: {
-                // Wyświetlenie grafu
-                if (graphMatrix && graphList) {
-                    std::cout << "Graf w reprezentacji macierzowej:\n";
-                    graphMatrix->display();
-                    std::cout << "Graf w reprezentacji listowej:\n";
-                    graphList->display();
-                } else {
-                    std::cout << "Graf nie zostal jeszcze wczytany ani wygenerowany.\n";
+                if (graphMatrixU && graphListU) {
+                    std::cout << "Reprezentacja macierzowa (Nieskierowany - MST):\n";
+                    graphMatrixU->display();
+                    std::cout << "Reprezentacja listowa (Nieskierowany - MST):\n";
+                    graphListU->display();
                 }
+
+                if (graphMatrixD && graphListD) {
+                    std::cout << "Reprezentacja macierzowa (Skierowany - SP):\n";
+                    graphMatrixD->display();
+                    std::cout << "Reprezentacja listowa (Skierowany - SP):\n";
+                    graphListD->display();
+                }
+
                 break;
             }
-            case 4:
-                if (graphMatrix && graphList) {
+
+            case 4: {
+                if (graphMatrixU && graphListU) {
                     MSTPrim prim(n);
                     std::cout << "MST (Prim) macierzowo:\n";
-                    prim.runMatrix(*graphMatrix);
+                    prim.runMatrix(*graphMatrixU);
                     std::cout << "\nMST (Prim) listowo:\n";
-                    prim.runList(*graphList);
+                    prim.runList(*graphListU);
                 } else {
-                    std::cout << "Graf nie zainicjowany.\n";
+                    std::cout << "Graf nieskierowany nie zostal zainicjowany.\n";
                 }
                 break;
+            }
+
 
             case 5: {
-                // Algorytm Kruskala
-                if (kruskal && graphMatrix && graphList) {
-                    std::cout << "MST dla reprezentacji macierzowej:\n";
-                    kruskal->run(*graphMatrix);
-                    std::cout << "\nMST dla reprezentacji listowej:\n";
-                    kruskal->run(*graphList);
+                if (graphMatrixU && graphListU) {
+                    MSTKruskal kruskal(n);
+                    std::cout << "MST (Kruskal) macierzowo:\n";
+                    kruskal.run(*graphMatrixU);
+                    std::cout << "\nMST (Kruskal) listowo:\n";
+                    kruskal.run(*graphListU);
                 } else {
-                    std::cout << "Graf nie zostal jeszcze wczytany ani wygenerowany.\n";
+                    std::cout << "Graf nieskierowany nie zostal zainicjowany.\n";
                 }
                 break;
-            }case 6: {
-                int start;
-                std::cout << "Podaj wierzcholek startowy: ";
-                std::cin >> start;
-                SPDijkstra dij(n);
-                std::cout << "Dijkstra macierzowo:\\n";
-                dij.runMatrix(*graphMatrix, start);
-                std::cout << "Dijkstra listowo:\\n";
-                dij.runList(*graphList, start);
+            }
+            case 6: {
+                if (graphMatrixD && graphListD) {
+                    int start;
+                    std::cout << "Podaj wierzcholek startowy: ";
+                    std::cin >> start;
+                    SPDijkstra dij(n);
+                    std::cout << "Dijkstra macierzowo:\n";
+                    dij.runMatrix(*graphMatrixD, start);
+                    std::cout << "Dijkstra listowo:\n";
+                    dij.runList(*graphListD, start);
+                } else {
+                    std::cout << "Graf skierowany nie zostal zainicjowany.\n";
+                }
                 break;
             }
+
             case 7: {
-                int start;
-                std::cout << "Podaj wierzcholek startowy: ";
-                std::cin >> start;
-                SPBellman bf(n);
-                std::cout << "Bellman-Ford macierzowo:\\n";
-                bf.runMatrix(*graphMatrix, start);
-                std::cout << "Bellman-Ford listowo:\\n";
-                bf.runList(*graphList, start);
+                if (graphMatrixD && graphListD) {
+                    int start;
+                    std::cout << "Podaj wierzcholek startowy: ";
+                    std::cin >> start;
+                    SPBellman bf(n);
+                    std::cout << "Bellman-Ford macierzowo:\n";
+                    bf.runMatrix(*graphMatrixD, start);
+                    std::cout << "Bellman-Ford listowo:\n";
+                    bf.runList(*graphListD, start);
+                } else {
+                    std::cout << "Graf skierowany nie zostal zainicjowany.\n";
+                }
                 break;
             }
+
 
             case 8:
                 std::cout << "Konczenie programu.\n";

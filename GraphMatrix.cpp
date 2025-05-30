@@ -24,6 +24,11 @@ void GraphMatrix::addEdge(int u, int v, int w) {
         matrix[v][u] = w; // Undirected graph
     }
 }
+void GraphMatrix::addDirectedEdge(int u, int v, int w) {
+    if (u >= 0 && u < n && v >= 0 && v < n) {
+        matrix[u][v] = w; // Skierowana krawędź
+    }
+}
 
 void GraphMatrix::display() const {
     std::cout << "Adjacency Matrix (" << n << " x " << n << "):\n";
