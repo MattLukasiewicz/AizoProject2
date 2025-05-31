@@ -5,6 +5,7 @@
 #include <fstream>
 #include <cmath>
 #include <string>
+#include <chrono>
 
 #include "GraphMatrix.h"
 #include "GraphList.h"
@@ -51,6 +52,64 @@ void readGraphFromFile(const std::string& filename, bool directed, GraphMatrix*&
     infile.close();
     std::cout << "Graf wczytano z pliku: " << filename << "\n";
 }
+// Dodaj to np. nad mainem:
+
+// Generuje spójny, losowy graf (nieskierowany lub skierowany) bez użycia pliku.
+void generateGraphInMemory(GraphMatrix& gm, GraphList& gl,
+                           int vertices, int edges, bool directed) {
+    // 1) Przygotuj visited + exists do drzewa rozpinającego
+    std::vector<bool> visited(vertices,false);
+    std::vector<std::vector<bool>> exists(vertices, std::vector<bool>(vertices,false));
+    srand((unsigned)time(nullptr));
+
+    // 2) Drzewo rozpinające (nieskierowane! zawsze)
+    visited[0] = true;
+    int added = 0;
+    while (added < vertices - 1) {
+        int u = rand()%vertices, v = rand()%vertices;
+        if (u!=v && visited[u]!=visited[v]) {
+            int w = rand()%100+1;
+            gm.addEdge(u,v,w);
+            gl.addEdge(u,v,w);
+            exists[u][v] = exists[v][u] = true;
+            visited[u] = visited[v] = true;
+            ++added;
+        }
+    }
+
+    // 3) Jeżeli graf ma być skierowany, dodaj „pętlę” zapewniającą dojścia
+    if (directed) {
+        for (int i = 0; i < vertices; ++i) {
+            int j = (i+1)%vertices;
+            if (!exists[i][j]) {
+                int w = rand()%100+1;
+                gm.addDirectedEdge(i,j,w);
+                gl.addDirectedEdge(i,j,w);
+                exists[i][j] = true;
+            }
+        }
+    }
+
+    // 4) Pozostałe krawędzie
+    int extra = edges - (directed ? (vertices) : (vertices-1));
+    while (extra > 0) {
+        int u = rand()%vertices, v = rand()%vertices;
+        if (u!=v && !exists[u][v]) {
+            int w = rand()%100+1;
+            if (directed) {
+                gm.addDirectedEdge(u,v,w);
+                gl.addDirectedEdge(u,v,w);
+                exists[u][v] = true;
+            } else {
+                gm.addEdge(u,v,w);
+                gl.addEdge(u,v,w);
+                exists[u][v] = exists[v][u] = true;
+            }
+            --extra;
+        }
+    }
+}
+
 
 void generateAndSaveRandomGraph(int vertices, int edges, const std::string& filename, bool directed) {
     std::ofstream outfile(filename);
@@ -170,6 +229,83 @@ void removeOnePercent(const std::string& filename) {
 
 
 
+void runExperiments() {
+    const int repetitions = 10;
+    const int numVertices[] = {10, 50, 100, 200, 300, 400};
+    const double densities[] = {0.2, 0.6, 0.99};
+
+    std::ofstream results("experiment_summary.csv");
+    if (!results) {
+        std::cerr << "Nie moge otworzyc experiment_summary.csv do zapisu\n";
+        return;
+    }
+    results << "Vertices,Density,Representation,Algorithm,AvgTime_ms\n";
+
+    for (int V: numVertices) {
+        int maxE = V*(V-1)/2;
+        for (double density: densities) {
+            int E = static_cast<int>(std::ceil(maxE * density));
+
+            double tPmat=0, tPlist=0, tKmat=0, tKlist=0;
+            for (int run=0; run<repetitions; ++run) {
+                // Generuj graf w pamięci
+                GraphMatrix* gm = new GraphMatrix(V);
+                GraphList* gl   = new GraphList(V);
+                generateGraphInMemory(*gm, *gl, V, E, /*directed=*/false);
+
+                // Prim matrix
+                MSTPrim pM(V);
+                auto s = std::chrono::high_resolution_clock::now();
+                pM.runMatrix(*gm);
+                auto e = std::chrono::high_resolution_clock::now();
+                tPmat += std::chrono::duration<double,std::milli>(e-s).count();
+
+                // Prim list
+                MSTPrim pL(V);
+                s = std::chrono::high_resolution_clock::now();
+                pL.runList(*gl);
+                e = std::chrono::high_resolution_clock::now();
+                tPlist += std::chrono::duration<double,std::milli>(e-s).count();
+
+                // Kruskal matrix
+                MSTKruskal kM(V);
+                s = std::chrono::high_resolution_clock::now();
+                kM.run(*gm);
+                e = std::chrono::high_resolution_clock::now();
+                tKmat += std::chrono::duration<double,std::milli>(e-s).count();
+
+                // Kruskal list
+                MSTKruskal kL(V);
+                s = std::chrono::high_resolution_clock::now();
+                kL.run(*gl);
+                e = std::chrono::high_resolution_clock::now();
+                tKlist += std::chrono::duration<double,std::milli>(e-s).count();
+
+                delete gm;
+                delete gl;
+            }
+
+            double aPmat = tPmat/repetitions;
+            double aPlist = tPlist/repetitions;
+            double aKmat = tKmat/repetitions;
+            double aKlist = tKlist/repetitions;
+
+            results << V<<","<<density<<",Matrix,Prim,"<<aPmat<<"\n"
+                    << V<<","<<density<<",List,Prim,"<<aPlist<<"\n"
+                    << V<<","<<density<<",Matrix,Kruskal,"<<aKmat<<"\n"
+                    << V<<","<<density<<",List,Kruskal,"<<aKlist<<"\n";
+
+            std::cout << "V="<<V<<" d="<<density*100<<"%  "
+                      <<"PrimM="<<aPmat<<"ms  PrimL="<<aPlist<<"ms  "
+                      <<"KrM="<<aKmat<<"ms  KrL="<<aKlist<<"ms\n";
+        }
+    }
+    results.close();
+    std::cout << "Eksperyment zakonczony. Wyniki w experiment_summary.csv\n";
+}
+
+
+
 
 void displayMenu() {
     std::cout << "================= Menu =================\n";
@@ -181,7 +317,8 @@ void displayMenu() {
     std::cout << "6. Dijkstra\n";
     std::cout << "7. Bellman-Ford\n";
     std::cout << "8. Max flow (Ford-Fulkerson)\n";
-    std::cout << "9. Wyjscie\n";
+    std::cout << "9. Tryb eksperymentu (MST)\n";
+    std::cout << "10. Wyjscie\n";
     std::cout << "========================================\n";
     std::cout << "Wybierz opcje: ";
 }
@@ -394,8 +531,12 @@ int main() {
                 }
                 break;
             }
-
             case 9:
+                runExperiments();
+                break;
+
+
+            case 10:
                 std::cout << "Konczenie programu.\n";
                 // usuń wszystkie utworzone wskaźniki...
                 delete graphMatrixU; delete graphListU;
