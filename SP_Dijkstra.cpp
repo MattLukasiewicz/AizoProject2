@@ -47,6 +47,7 @@ void SPDijkstra::runMatrix(GraphMatrix& gm, int start) {
             std::cout<<"\n";
         }
     }
+
     delete[] dist; delete[] prev; delete[] used;
 }
 
@@ -89,5 +90,6 @@ void SPDijkstra::runList(GraphList& gl, int start) {
             std::cout<<"\n";
         }
     }
+
     delete[] dist; delete[] prev; delete[] used;
 }

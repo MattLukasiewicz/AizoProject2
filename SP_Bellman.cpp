@@ -34,6 +34,7 @@ void SPBellman::runMatrix(GraphMatrix& gm, int start) {
             }
         }
     }
+
     std::cout << "Bellman-Ford (macierz) od wezla " << start << ":\n";
     for (int i = 0; i < n; ++i) {
         if (dist[i] == INF) {
@@ -44,6 +45,7 @@ void SPBellman::runMatrix(GraphMatrix& gm, int start) {
             std::cout << "\n";
         }
     }
+
     delete[] dist;
     delete[] prev;
 }
@@ -71,6 +73,7 @@ void SPBellman::runList(GraphList& gl, int start) {
             }
         }
     }
+
     std::cout << "Bellman-Ford (lista) od wezla " << start << ":\n";
     for (int i = 0; i < n; ++i) {
         if (dist[i] == INF) {
@@ -81,6 +84,7 @@ void SPBellman::runList(GraphList& gl, int start) {
             std::cout << "\n";
         }
     }
+
     delete[] dist;
     delete[] prev;
 }
